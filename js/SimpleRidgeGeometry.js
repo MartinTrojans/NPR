@@ -21,16 +21,17 @@ THREE.RidgeShader = {
 "			if ( (EdotN * EdotT) < 0.01 ) ",
 "			{",
 "				visible = 1.0;",
-"				vColor = vec3(0.0, 0.0, 0.0);",
-"				if (EdotN > 0.01) ",
-"				{",
-"					newposition = position - vNormal * extend; ",
-"				}",
 "			}",
 "			else ",
 "			{",
 "				visible = ridge;",
 "			}",
+"			if (EdotN > 0.01) ",
+"			{",
+"				newposition = position - vNormal * extend; ",
+"			}",
+"			vColor = vec3(0.0, 0.0, 0.0);",
+
 "			gl_Position = projectionMatrix * modelViewMatrix * vec4( newposition, 1.0 );",
 "		}",
 
@@ -44,7 +45,8 @@ THREE.RidgeShader = {
 "",
 "		void main() {",
 "		// specular: N * H to a power. H is light vector + view vect",
-"			if (visible < 1.0 )",
+"			if (visible < 0.9) ",
+"			//if (visible > 0.01 || visible < -0.01)",
 "				discard;",
 "			gl_FragColor.xyz = vColor;",
 "		}",
@@ -118,8 +120,7 @@ THREE.SimpleRidgeGeometry = function(geometry, creaseAngle){
 
 			laV.push(vb);
 			//linkNormal[va].push(face.normal);
-			linkNormal[va].push(face.normal);
-			//linkSecondNormal[va].push(face.normal);
+			linkNormal[va].push(face.vertexNormals[fia]);
 		}
 		else {
 			//console.log(va+' '+vb);
@@ -128,7 +129,8 @@ THREE.SimpleRidgeGeometry = function(geometry, creaseAngle){
 			//b - normal
 			var n2 = n1;
 			//a - tangent
-			var t1 = face.normal;
+			var t1 = face.vertexNormals[fib];
+			//var t1 = face.normal;
 			//b - tangent
 			var t2 = t1;
 			insertAttribute(originVertices[va], n1, t1, face.vertexNormals[fia]);

@@ -2,7 +2,8 @@ var SCREEN_WIDTH = window.innerWidth;
 var SCREEN_HEIGHT = window.innerHeight;
 
 var container, camera, scene, renderer, stats;
-
+var cameraRT; //render target camera
+var sceneRT; // render target scene
 var cameraControls;
 
 var effectController;
@@ -27,6 +28,12 @@ var m_mesh;
 var m_jsonObject;
 
 var m_jsonGeo;
+var m_chairGeo;
+
+var m_textureRepeat = 1.0;
+
+var m_MarioGeo;
+
 var m_creaseAngle = 0.8;
 
 var m_teapotGeo;
@@ -36,12 +43,14 @@ var wireframeMaterial, phongMaterial;
 var hatchShaderMaterial;
 var chineseShaderMaterial;
 
-var NPR_ShaderMaterial1;
+var ToonShaderMaterial;
 
 // material rendering on the teapot
 var nowMaterial;
 
 var solidGround, ground;
+var ToonOffset;
+var toonOutlineWidth;
 
 init();
 animate();
@@ -60,14 +69,15 @@ function init() {
 	ambientLight = new THREE.AmbientLight(0xefefef); // 0.2
 
 	light = new THREE.DirectionalLight(0xffffff, 1.0);
-	light.position.set(32, 39, 70);
+	light.position.set(5, 39, 90);
 
 	// RENDERER
 
 	renderer = new THREE.WebGLRenderer({ antialias: true });
 	renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
-	renderer.setClearColor(0x808080, 1.0);
-
+	renderer.setClearColor(0xffffff, 1.0);
+   // console.log(renderer.getMaxAnisotropy()); //for the mipmap texture
+    
 	container.appendChild(renderer.domElement);
 
 	renderer.gammaInput = true;
@@ -104,7 +114,7 @@ function init() {
 	var materialColor = new THREE.Color();
 	materialColor.setRGB(1, 1, 1);
 	
-	wireframeMaterial = new THREE.MeshBasicMaterial( { color: 0xFFCC99, wireframe: true } ) ;
+	wireframeMaterial = new THREE.MeshBasicMaterial( { color: 0x0000FF, wireframe: true } ) ;
 
 	phongMaterial = createShaderMaterial(
 		"phong", 
@@ -126,25 +136,34 @@ function init() {
 		ambientLight,
 		materialColor,
 		effectController.cull);
+	ToonShaderMaterial = createShaderMaterial(
+		"ToonShading", 
+		light, 
+		ambientLight, 
+		materialColor,
+		effectController.cull);
+	ToonOutlineMaterial = createShaderMaterial(
+		"Outline", 
+		light, 
+		ambientLight, 
+		materialColor,
+		effectController.cull);
 
 	nowMaterial = wireframeMaterial;
 	fillScene();
 
 	createModel(m_model);
-
 }
 
 function createShaderMaterial(id, light, ambientLight, materialColor, cull) {
 	var shader;
-	var u;
-
 	var material;
 	if (id == "ChineseShading") {
 		material = new THREE.ChineseMaterial(ambientLight);
 	}
 	else if (id == "phong") {
 		shader = THREE.ShaderTypes[id];
-		u = THREE.UniformsUtils.clone(shader.uniforms);
+		var u = THREE.UniformsUtils.clone(shader.uniforms);
 
 		var vs = shader.vertexShader;
 		var fs = shader.fragmentShader;
@@ -157,8 +176,35 @@ function createShaderMaterial(id, light, ambientLight, materialColor, cull) {
 	}
 	else if (id == "HatchShader") {
 
-		material = new THREE.HatchShaderMaterial();
+		//material = new THREE.HatchShaderMaterial();
+		material = new THREE.MipmapShaderMaterial();
+	}
+	else if (id == "ToonShading") {
+		shader = THREE.ToonShader;
+	
+		var u = THREE.UniformsUtils.clone(shader.uniforms);
 
+		var vs = shader.vertexShader;
+		var fs = shader.fragmentShader;
+
+		material = new THREE.ShaderMaterial({ 
+			uniforms: u, 
+			vertexShader: vs, 
+			fragmentShader: fs });
+		material.uniforms.uAmbientLightColor.value = ambientLight.color;
+	}
+	else if (id == "Outline") {
+		shader = THREE.ToonOutline;
+	
+		var u = THREE.UniformsUtils.clone(shader.uniforms);
+
+		var vs = shader.vertexShader;
+		var fs = shader.fragmentShader;
+
+		material = new THREE.ShaderMaterial({ 
+			uniforms: u, 
+			vertexShader: vs, 
+			fragmentShader: fs });
 	}
 	else {
 		console.error("Unexpected type of ShaderMaterial: "+id);
@@ -200,32 +246,34 @@ function setupGui() {
 
 	effectController = {
 
-		ka: 0.2,
-		kd: 0.5,
-		ks: 0.7,
+		ka: 1.0,
+		kd: 1.0,
+		ks: 0.5,
 
-		red: 0.6,
-		green: 0.8,
-		blue: 0.7,
+		red: 0.8,
+		green: 0.2,
+		blue: 0.2,
 
 		// bizarrely, if you initialize these with negative numbers, the sliders
 		// will not show any decimal places.
-		lx: 0.32,
-		ly: 0.39,
-		lz: 0.7,
-				
-		ground: true,
-		xzgrid: true,
+		lx: 0.0,
+		ly: 0.3,
+		lz: 1.0,
 
-		style: "HatchShader",
+		ground: false,
+		xzgrid: false,
+
+		style: "ToonShading",
 
 		edge: true,
 
 		edgewidth: 5,
-		creaseAngle: 0.8, 
+		creaseAngle: 0.6,
 
-		model: "Bunny",
+		toonOffset : 0.5, 
+		toonOutlineWidth : 3.0,
 
+		model: "Teapot",
 	};
 
 	var h;
@@ -233,13 +281,13 @@ function setupGui() {
 	var gui = new dat.GUI();
 
 	// model
-	gui.add( effectController, "model", ["Sphere", "Teapot", "Bunny"]).name("Model");
+	gui.add( effectController, "model", ["Sphere", "Teapot", "Chair", "Bunny"]).name("Model");
 	// style
-	gui.add( effectController, "style", ["Wireframe","Phong", "NPR_Shader1", "HatchShader", "ChineseShading"] ).name("Style");
+	gui.add( effectController, "style", ["Wireframe","Phong", "ToonShading", "HatchShader", "ChineseShading"] ).name("Style");
 
 
 	// edge attributes
-	h = gui.addFolder("Sihouette Edge Control");
+	h = gui.addFolder("Silhouette Edge Control");
 	h.add( effectController, "edge", "edge").name("Edge");
 	h.add( effectController, "edgewidth", [2, 3, 5, 8]).name("Line Width");
 	h.add( effectController, "creaseAngle", 0.4, 1.0, 0.05).name("Crease Angle");
@@ -268,6 +316,11 @@ function setupGui() {
 	h.add(effectController, "ly", -1.0, 1.0, 0.025).name("y");
 	h.add(effectController, "lz", -1.0, 1.0, 0.025).name("z");
 
+	// toon Shading setting
+	h = gui.addFolder("ToonShading");
+
+	h.add( effectController, "toonOffset", 0.0, 1.0, 0.01).name("Offset");
+	h.add( effectController, "toonOutlineWidth", 1.0, 8.0, 1.0).name("Outline Width");
 
 	// grid
 
@@ -305,12 +358,11 @@ function render() {
 		sStyle = effectController.style;
 		edge = effectController.edge;
 		edgewidth = effectController.edgewidth;
-
 		m_model = effectController.model;
+		toonOffset = effectController.toonOffset;
 
 		console.log('call redraw from update');	
 		if ( sStyle === "Wireframe" ) {
-
 			nowMaterial = wireframeMaterial;
 
 		} else if ( sStyle === "Phong" ) {
@@ -325,8 +377,15 @@ function render() {
 
 			nowMaterial = hatchShaderMaterial;
 
+		} else if ( sStyle === "ToonShading") {
+
+			nowMaterial = ToonShaderMaterial;
+
+
 		} else {
+
 			console.error("Unknown style: " + sStyle);
+
 		}
 
 		fillScene();
@@ -334,18 +393,32 @@ function render() {
 		reDraw();
 	}
 
-	if (nowMaterial.uniforms !== undefined) {
+	if (nowMaterial.uniforms != undefined) {
+		if (nowMaterial.uniforms.uKd != undefined) {
+			nowMaterial.uniforms.uKd.value = effectController.kd;
+		}
 
-		nowMaterial.uniforms.uKd.value = effectController.kd;
-		nowMaterial.uniforms.uKs.value = effectController.ks;
+		if (nowMaterial.uniforms.uKs != undefined) {
+			nowMaterial.uniforms.uKs.value = effectController.ks;		
+		}
 
-		var materialColor = new THREE.Color();
+		if (nowMaterial.uniforms.uMaterialColor !== undefined) {
+			var materialColor = new THREE.Color();
 
-		materialColor.setRGB( effectController.red, effectController.green, effectController.blue );
+			materialColor.setRGB( effectController.red, effectController.green, effectController.blue );
 
-		nowMaterial.uniforms.uMaterialColor.value.copy(materialColor);
+			nowMaterial.uniforms.uMaterialColor.value.copy(materialColor);
+		}
+
+		if(nowMaterial.uniforms.offset !== undefined){
+			nowMaterial.uniforms.offset.value = effectController.toonOffset;
+		}
+
+		if (nowMaterial.uniforms.repeat !== undefined) {
+			nowMaterial.uniforms.repeat.value = m_textureRepeat;
+		}
+
 	}
-
 
 
 
@@ -364,8 +437,10 @@ function render() {
 function reDraw() {
 
 
+	m_textureRepeat = 1.0;
 	if (m_model == 'Bunny') {
 		geometry = m_jsonGeo;
+		m_textureRepeat = 8.0;
 	} 
 	else  if (m_model == 'Teapot') 
 	{
@@ -373,9 +448,19 @@ function reDraw() {
 	}
 	else if (m_model == 'Sphere')
 	{
-		geometry = new THREE.SphereGeometry(5, 4, 10);
+		geometry = new THREE.SphereGeometry(5, 32, 32);
+		m_modelSize = 3;
+		m_textureRepeat = 2.0;
+
 	}
-	else
+	else if (m_model == 'Mario') {
+		geometry = m_MarioGeo;
+	} 
+	else if (m_model == 'Chair') {
+		geometry = m_chairGeo;
+		m_textureRepeat = 6.0;
+	}
+	else 
 	{
 		console.error("Unknown model type: " + m_model);
 	}
@@ -397,7 +482,7 @@ function reDraw() {
 
 		if (edge){
 			if (sStyle == "ChineseShading") {
-				var line = new THREE.ChineseRidgeGeometry(geometry);
+				var line = new THREE.ChineseRidgeGeometry(geometry, m_creaseAngle);
 				var chinesePainting = new THREE.Mesh(line, ridgeMaterial);
 				chinesePainting.position.y = m_modelSize;
 
@@ -406,7 +491,7 @@ function reDraw() {
 			else {
 				var ridgeGeo = new THREE.SimpleRidgeGeometry(geometry, m_creaseAngle);
 
-				ridgeMaterial.linewidth = edgewidth;
+				ridgeMaterial.linewidth = sStyle === "HatchShader" ? 2.0 : edgewidth;
 				ridge = new THREE.LineSegments(ridgeGeo, ridgeMaterial);
 				ridge.position.y = m_modelSize;	
 
@@ -415,26 +500,10 @@ function reDraw() {
 
 		}
 		scene.add(m_mesh);
+
 	} else {
 		console.log('undefined geo');
 	}
-}
-
-function loadJsonObject(filepath) {
-	var jsonLoader = new THREE.JSONLoader();
-	jsonLoader.load(filepath, function (geometry, materials) {
-		geometry.normalize();
-		geometry.scale(6,6,6);
-		geometry.lookAt(new THREE.Vector3(0, 1, 0));
-
-		console.log("call reDraw from load json ");
-		geometry.rotateY(270.0/180.0*3.14);
-		geometry.translate(0, 1, 0);
-		m_jsonGeo = geometry;
-		
-		this.reDraw();
-
-	})
 }
 
 function createModel(id) {
@@ -452,9 +521,23 @@ function createModel(id) {
 	true ); // blinn
 
 	//create bunny
-	loadJsonObject("js/bunny-geo.json");
 
-	if (id !== "Bunny") { // or other json object
+	var jsonLoader = new THREE.JSONLoader();
+	jsonLoader.load("js/bunny-geo.json", function (geometry, materials) {
+		m_jsonGeo =  new THREE.BunnyGeometry("Bunny", geometry);
+
+		console.assert(m_jsonGeo !== undefined, "BunnyGeometry failed to load.");
+		this.reDraw();
+	})
+
+	jsonLoader.load("js/chair.json", function (geometry, materials) {
+		m_chairGeo =  new THREE.BunnyGeometry("Chair", geometry);
+
+		console.assert(m_chairGeo !== undefined, "ChairGeometry failed to load.");
+		this.reDraw();
+	})
+
+	if ((id !== "Bunny") || (id != "Chair")){ // or other json object
 		console.log("call redraw from create model");
 		reDraw();
 	} 
@@ -463,10 +546,9 @@ function createModel(id) {
 
 function fillScene() {
 	scene = new THREE.Scene();
-	scene.fog = new THREE.Fog(0x808080, 8*teapotSize, 16*teapotSize);
+	//scene.fog = new THREE.Fog(0x808080, 8*teapotSize, 16*teapotSize);
 	
 	scene.add(camera);
-	
 	// LIGHTS
 	
 	scene.add(ambientLight);
@@ -491,5 +573,4 @@ function fillScene() {
 	scene.add( solidGround );
 	
 	scene.add( ground );
-
 }

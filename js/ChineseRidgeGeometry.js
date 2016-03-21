@@ -1,15 +1,22 @@
 "use strict";
 /*Chinese Ridege Geometry*/
-THREE.ChineseRidgeGeometry = function(geometry){
+THREE.ChineseRidgeGeometry = function(geometry, creaseAngle){
 	"use strict";
 
+
+	console.assert(geometry.vertices !== undefined);
 	var originVertices = geometry.vertices;
+
+	console.assert(geometry.faces !== undefined);
 	var originFaces = geometry.faces;
+
 	var segementNum = 5;
 
 	THREE.BufferGeometry.call(this);
 
 	this.type = 'ChineseRidgeGeometry';
+
+	var MAX_WIDTH = 2.0;
 
 	var prevertices = [];
 	var prenormals = [];
@@ -40,21 +47,13 @@ THREE.ChineseRidgeGeometry = function(geometry){
 	}
 	
 	function insertAttribute(v, normal, tangent) {
-		/*prevertices.push(position.x);
-		prevertices.push(position.y);
-		prevertices.push(position.z);*/
-		/*
-		prenormals.push(normal.x);
-		prenormals.push(normal.y);
-		prenormals.push(normal.z);
-
-		pretangents.push(tangent.x);
-		pretangents.push(tangent.y);
-		pretangents.push(tangent.z);
-		*/
+		normal.normalize();
 		prenormals[v] = normal;
+
+		tangent.normalize();
 		pretangents[v] = tangent;
-		ridge.push(1.0);
+
+
 	}
 
 	function pushLinkVertex(face, va, fia, vb, fib) {
@@ -62,8 +61,7 @@ THREE.ChineseRidgeGeometry = function(geometry){
 		var ib = laV.indexOf(vb);
 		if (ib == -1) {
 			laV.push(vb);
-			linkNormal[va].push(face.normal);
-			//linkSecondNormal[va].push(face.vertexNormals[fib]);
+			linkNormal[va].push(face.vertexNormals[fia]);
 		}
 		else {
 			//a - normal
@@ -71,7 +69,7 @@ THREE.ChineseRidgeGeometry = function(geometry){
 			//b - normal
 			var n2 = n1;
 			//a - tangent
-			var t1 = face.normal;
+			var t1 = face.vertexNormals[fib];
 			//b - tangent
 			var t2 = t1;
 			insertAttribute(va, n1, t1);
@@ -188,6 +186,14 @@ THREE.ChineseRidgeGeometry = function(geometry){
 		tangents.push(tangent.x);
 		tangents.push(tangent.y);
 		tangents.push(tangent.z);
+
+		var dihedralAngle = normal.dot(tangent);
+		//console.log(VNdotN * VNdotT);
+		if (dihedralAngle <creaseAngle) {
+			ridge.push(1.0);
+		} else {
+			ridge.push(0.0);
+		}
 	}
 
 	function insertFace(p1, p2, offset1, n1, n2, t1, t2) {
@@ -205,9 +211,17 @@ THREE.ChineseRidgeGeometry = function(geometry){
 		var p2 = originVertices[v2];
 
 		//Vector3 -- normal
+		console.assert(v1 < prenormals.length);
 		var n1 = prenormals[v1];
-		var n2 = prenormals[v2];
+		if (! (n1 instanceof THREE.Vector3)) {
+			return ;
+		}
 
+		console.assert(v2 < prenormals.length);
+		var n2 = prenormals[v2];
+		if (! (n2 instanceof THREE.Vector3)) {
+			return ;
+		}
 		//Vector -- tangent
 		var t1 = pretangents[v1];
 		var t2 = pretangents[v2];
@@ -241,7 +255,7 @@ THREE.ChineseRidgeGeometry = function(geometry){
 			var p2 = linkedListArray[i].getTail();
 			var step = linkedListArray[i].getLength();
 
-			var strokewidth = 0.01;
+			var strokewidth = 0.03;
 			var lastStrokewidth = 0.0;
 			while (p1 !== p2){
 				if (p1.getNext() === p2){
@@ -265,7 +279,8 @@ THREE.ChineseRidgeGeometry = function(geometry){
 					break;
 				}
 				lastStrokewidth = strokewidth;
-				strokewidth += 0.003;
+				strokewidth += 0.006;
+				strokewidth = strokewidth > MAX_WIDTH ? MAX_WIDTH : strokewidth;
 			}
 		}
 	}
@@ -274,6 +289,7 @@ THREE.ChineseRidgeGeometry = function(geometry){
 	var numFaces = originFaces.length;
 	for (var i = 0; i<numFaces; i++) {
 		var face = originFaces[i];
+		console.assert(face instanceof THREE.Face3);
 
 		var normalIndices = [];
 		normalIndices[face.a] = 0;
@@ -317,29 +333,6 @@ THREE.ChineseRidgeGeometry = function(geometry){
 	}
 
 	strokeBuild(linkedListArray);
-	/*
-	var edgeArray = new Array(segementNum);
-	for (var i = 0; i<edgeArray.length; i++){
-		edgeArray[i] = [];
-	}
-
-	groupEdge(linkedListArray, edgeArray);
-	
-	var array = edgeArray[num];
-	
-	for (var i = 0; i<array.length; i++) {
-		//var index = prevertices.indexOf(originVertices[array[i]]);
-		var index = array[i];
-		vertices.push(originVertices[index].x);
-		vertices.push(originVertices[index].y);
-		vertices.push(originVertices[index].z);
-		normals.push(prenormals[index].x);
-		normals.push(prenormals[index].y);
-		normals.push(prenormals[index].z);
-		tangents.push(pretangents[index].x);
-		tangents.push(pretangents[index].y);
-		tangents.push(pretangents[index].z);
-	}*/
 	
   	var f32Vertices = new Float32Array(vertices);	
 	var attrPosition = new THREE.BufferAttribute(f32Vertices, 3);
@@ -352,6 +345,10 @@ THREE.ChineseRidgeGeometry = function(geometry){
 	var f32Tan = new Float32Array(tangents);
 	var attrTan = new THREE.BufferAttribute(f32Tan, 3);
 	this.addAttribute('tangent', attrTan);
+
+	var f32Ridge = new Float32Array(ridge);
+	var attrRidge = new THREE.BufferAttribute(f32Ridge, 1);
+	this.addAttribute('ridge', attrRidge);
 	
 };
 
