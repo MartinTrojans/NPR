@@ -77,7 +77,7 @@ function init() {
 	renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
 	renderer.setClearColor(0xffffff, 1.0);
    // console.log(renderer.getMaxAnisotropy()); //for the mipmap texture
-    
+
 	container.appendChild(renderer.domElement);
 
 	renderer.gammaInput = true;
@@ -107,26 +107,26 @@ function init() {
 	// GUI
 
 	setupGui();
-	
+
 	// MATERIALS
 	// Note: setting per pixel off does not affect the specular highlight;
 	// it affects only whether the light direction is recalculated each pixel.
 	var materialColor = new THREE.Color();
 	materialColor.setRGB(1, 1, 1);
-	
+
 	wireframeMaterial = new THREE.MeshBasicMaterial( { color: 0x0000FF, wireframe: true } ) ;
 
 	phongMaterial = createShaderMaterial(
-		"phong", 
-		light, 
-		ambientLight, 
-		materialColor, 
+		"phong",
+		light,
+		ambientLight,
+		materialColor,
 		effectController.cull);
 
 	chineseShaderMaterial = createShaderMaterial(
-		"ChineseShading", 
-		light, 
-		ambientLight, 
+		"ChineseShading",
+		light,
+		ambientLight,
 		materialColor,
 		effectController.cull);
 
@@ -137,15 +137,15 @@ function init() {
 		materialColor,
 		effectController.cull);
 	ToonShaderMaterial = createShaderMaterial(
-		"ToonShading", 
-		light, 
-		ambientLight, 
+		"ToonShading",
+		light,
+		ambientLight,
 		materialColor,
 		effectController.cull);
 	ToonOutlineMaterial = createShaderMaterial(
-		"Outline", 
-		light, 
-		ambientLight, 
+		"Outline",
+		light,
+		ambientLight,
 		materialColor,
 		effectController.cull);
 
@@ -168,9 +168,9 @@ function createShaderMaterial(id, light, ambientLight, materialColor, cull) {
 		var vs = shader.vertexShader;
 		var fs = shader.fragmentShader;
 
-		material = new THREE.ShaderMaterial({ 
-			uniforms: u, 
-			vertexShader: vs, 
+		material = new THREE.ShaderMaterial({
+			uniforms: u,
+			vertexShader: vs,
 			fragmentShader: fs });
 
 	}
@@ -181,29 +181,29 @@ function createShaderMaterial(id, light, ambientLight, materialColor, cull) {
 	}
 	else if (id == "ToonShading") {
 		shader = THREE.ToonShader;
-	
+
 		var u = THREE.UniformsUtils.clone(shader.uniforms);
 
 		var vs = shader.vertexShader;
 		var fs = shader.fragmentShader;
 
-		material = new THREE.ShaderMaterial({ 
-			uniforms: u, 
-			vertexShader: vs, 
+		material = new THREE.ShaderMaterial({
+			uniforms: u,
+			vertexShader: vs,
 			fragmentShader: fs });
 		material.uniforms.uAmbientLightColor.value = ambientLight.color;
 	}
 	else if (id == "Outline") {
 		shader = THREE.ToonOutline;
-	
+
 		var u = THREE.UniformsUtils.clone(shader.uniforms);
 
 		var vs = shader.vertexShader;
 		var fs = shader.fragmentShader;
 
-		material = new THREE.ShaderMaterial({ 
-			uniforms: u, 
-			vertexShader: vs, 
+		material = new THREE.ShaderMaterial({
+			uniforms: u,
+			vertexShader: vs,
 			fragmentShader: fs });
 	}
 	else {
@@ -263,14 +263,14 @@ function setupGui() {
 		ground: false,
 		xzgrid: false,
 
-		style: "ToonShading",
+		style: "HatchShader",
 
 		edge: true,
 
 		edgewidth: 5,
 		creaseAngle: 0.6,
 
-		toonOffset : 0.5, 
+		toonOffset : 0.5,
 		toonOutlineWidth : 3.0,
 
 		model: "Teapot",
@@ -361,7 +361,7 @@ function render() {
 		m_model = effectController.model;
 		toonOffset = effectController.toonOffset;
 
-		console.log('call redraw from update');	
+		console.log('call redraw from update');
 		if ( sStyle === "Wireframe" ) {
 			nowMaterial = wireframeMaterial;
 
@@ -399,7 +399,7 @@ function render() {
 		}
 
 		if (nowMaterial.uniforms.uKs != undefined) {
-			nowMaterial.uniforms.uKs.value = effectController.ks;		
+			nowMaterial.uniforms.uKs.value = effectController.ks;
 		}
 
 		if (nowMaterial.uniforms.uMaterialColor !== undefined) {
@@ -441,8 +441,8 @@ function reDraw() {
 	if (m_model == 'Bunny') {
 		geometry = m_jsonGeo;
 		m_textureRepeat = 8.0;
-	} 
-	else  if (m_model == 'Teapot') 
+	}
+	else  if (m_model == 'Teapot')
 	{
 		geometry = m_teapotGeo;
 	}
@@ -455,12 +455,12 @@ function reDraw() {
 	}
 	else if (m_model == 'Mario') {
 		geometry = m_MarioGeo;
-	} 
+	}
 	else if (m_model == 'Chair') {
 		geometry = m_chairGeo;
 		m_textureRepeat = 6.0;
 	}
-	else 
+	else
 	{
 		console.error("Unknown model type: " + m_model);
 	}
@@ -474,8 +474,8 @@ function reDraw() {
 		var ridge_vs = ridgeShader.vertexShader;
 		var ridge_fs = ridgeShader.fragmentShader;
 
-		var ridgeMaterial = new THREE.ShaderMaterial({ 
-				vertexShader: ridge_vs, 
+		var ridgeMaterial = new THREE.ShaderMaterial({
+				vertexShader: ridge_vs,
 				fragmentShader: ridge_fs });
 
 		ridgeMaterial.side = THREE.DoubleSide;
@@ -487,13 +487,13 @@ function reDraw() {
 				chinesePainting.position.y = m_modelSize;
 
 				scene.add(chinesePainting);
-			} 
+			}
 			else {
 				var ridgeGeo = new THREE.SimpleRidgeGeometry(geometry, m_creaseAngle);
 
 				ridgeMaterial.linewidth = sStyle === "HatchShader" ? 2.0 : edgewidth;
 				ridge = new THREE.LineSegments(ridgeGeo, ridgeMaterial);
-				ridge.position.y = m_modelSize;	
+				ridge.position.y = m_modelSize;
 
 				scene.add(ridge);
 			}
@@ -540,22 +540,22 @@ function createModel(id) {
 	if ((id !== "Bunny") || (id != "Chair")){ // or other json object
 		console.log("call redraw from create model");
 		reDraw();
-	} 
+	}
 
 }
 
 function fillScene() {
 	scene = new THREE.Scene();
 	//scene.fog = new THREE.Fog(0x808080, 8*teapotSize, 16*teapotSize);
-	
+
 	scene.add(camera);
 	// LIGHTS
-	
+
 	scene.add(ambientLight);
 	scene.add(light);
-	
+
 	// GROUND and GRIDS
-	
+
 	// put grid lines every 1 unit
 	solidGround = new THREE.Mesh(
 		new THREE.PlaneGeometry( 100, 100, 100, 100 ),
@@ -564,13 +564,13 @@ function fillScene() {
 	// cheat: offset by a small amount so grid is on top
 	// TODO: better way in three.js? Polygon offset is used in WebGL.
 	solidGround.position.y = -0.01;
-	
+
 	ground = new THREE.Mesh(
 		new THREE.PlaneGeometry( 100, 100, 100, 100 ),
 		new THREE.MeshBasicMaterial( { color: 0x0, wireframe: true } ) );
 	ground.rotation.x = - Math.PI / 2;
-	
+
 	scene.add( solidGround );
-	
+
 	scene.add( ground );
 }
